@@ -64,45 +64,49 @@ class Value:
     def __neg__(self):
         return self * -1
 
-    def backward(self, outer=0):
+    def backward(self):
+        self._backward(root=True)
+
+    def _backward(self, root=False):
         if not isinstance(self.tree, Op):
             raise ValueError("Operation tree is corrupted.")
 
         operand1 = self.tree.operand1
         operand2 = self.tree.operand2
 
-        if len(self.grad_func) > 0:
-            grad_func = self.grad_func.pop()
-            self.grad += grad_func(self.value)
-        else:
+        if root:
             self.grad = 1
 
         method = self.tree.method
         if method in ["add", "sub"]:
-            operand1.grad_func.append(lambda _: self.grad * 1)
-            operand2.grad_func.append(lambda _: self.grad * 1)
-            operand1.backward()
-            operand2.backward()
+            operand1.grad += self.grad * 1
+            operand2.grad += self.grad * 1
+
+            operand1._backward()
+            operand2._backward()
 
         if method == "pow":
-            operand1.grad_func.append(
-                lambda x: self.grad * operand2.value * (x ** (operand2.value - 1))
+            operand1.grad += (
+                self.grad * operand2.value * (operand1.value ** (operand2.value - 1))
             )
-            operand2.grad_func.append(
-                lambda x: self.grad * operand1.value**x * math.log(operand1.value)
+            operand2.grad += (
+                self.grad * operand1.value**operand2.value * math.log(operand1.value)
             )
-            operand1.backward()
-            operand2.backward()
+
+            operand1._backward()
+            operand2._backward()
 
         if method in ["mul"]:
-            operand1.grad_func.append(lambda x: self.grad * operand2.value)
-            operand2.grad_func.append(lambda x: self.grad * operand1.value)
-            operand1.backward()
-            operand2.backward()
+            operand1.grad += self.grad * operand2.value
+            operand2.grad += self.grad * operand1.value
+
+            operand1._backward()
+            operand2._backward()
 
         if method == "value":
             pass
 
 
 #  If you have diverging paths, you just add the gradients together
-# If you have diverging paths, the grad_funcs will overwrite, hence use a grad_func queue
+# If you have diverging paths, the grad_funcs will overwrite, hence use a grad_func queue,
+#  or just apply the grad func immediately
