@@ -33,6 +33,9 @@ class Value:
             }
         )
 
+    def __repr__(self):
+        return f"Value(value={self.value}, grad={self.grad})"
+
     def _apply_operation(self, other, operation, method_name):
         if not isinstance(other, Value):
             other = Value(other)
@@ -51,6 +54,11 @@ class Value:
 
     def __sub__(self, other: "Value"):
         return self._apply_operation(other, lambda x, y: x - y, "-")
+
+    def __rsub__(self, other):
+        if not isinstance(other, Value):
+            other = Value(other)
+        return other._apply_operation(self, lambda x, y: x - y, "-")
 
     def __mul__(self, other: "Value"):
         return self._apply_operation(other, lambda x, y: x * y, "*")
